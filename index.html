@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlayLens - Google Play Research Tool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    .app-card { transition: all 0.3s; }
+    .app-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.2); }
+    .screenshot { transition: transform 0.3s; }
+    .screenshot:hover { transform: scale(1.08); }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+  <div class="max-w-7xl mx-auto p-6">
+    <header class="text-center mb-10">
+      <h1 class="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-2">
+        PlayLens
+      </h1>
+      <p class="text-gray-400 text-lg">Google Play Creative + Content Research Tool</p>
+    </header>
+
+    <div class="flex gap-4 mb-8 max-w-2xl mx-auto">
+      <input id="searchInput" type="text" 
+             class="flex-1 bg-gray-900 border border-gray-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 text-lg"
+             placeholder="Search keywords... e.g. fitness tracker, photo editor">
+      <button onclick="searchApps()" 
+              class="bg-blue-600 hover:bg-blue-700 px-10 rounded-2xl font-semibold flex items-center gap-2">
+        <i class="fas fa-search"></i> Search
+      </button>
+    </div>
+
+    <div id="results" class="grid gap-8"></div>
+  </div>
+
+  <script>
+    const API_BASE = "https://your-scraper.onrender.com"; // ← Change this!
+
+    async function searchApps() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) return alert("Enter a keyword");
+
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = `<p class="text-center text-gray-400">Searching Play Store...</p>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}&num=5&country=pk`);
+        const apps = await res.json();
+
+        if (!apps.length) {
+          resultsDiv.innerHTML = `<p class="text-center text-red-400">No results found.</p>`;
+          return;
+        }
+
+        let html = `<div class="space-y-10">`;
+        
+        apps.forEach((app, index) => {
+          html += `
+            <div class="app-card bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden">
+              <div class="p-6 border-b border-gray-800 flex items-center gap-6">
+                <img src="${app.icon}" class="w-20 h-20 rounded-2xl object-cover" alt="${app.title}">
+                <div class="flex-1">
+                  <h2 class="text-2xl font-bold">${app.title}</h2>
+                  <p class="text-gray-400">${app.developer}</p>
+                  <div class="flex gap-6 mt-2 text-sm">
+                    <div><span class="text-yellow-400">★</span> ${app.rating}</div>
+                    <div>${app.downloads}</div>
+                    <div>${app.reviews.toLocaleString()} reviews</div>
+                  </div>
+                </div>
+                <a href="${app.url}" target="_blank" 
+                   class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-2xl text-sm font-medium flex items-center gap-2">
+                  <i class="fab fa-google-play"></i> View on Play
+                </a>
+              </div>
+
+              <!-- Text Based Content -->
+              <div class="p-6 grid md:grid-cols-2 gap-6">
+                <div>
+                  <h3 class="font-semibold mb-2 text-blue-400">Short Description</h3>
+                  <p class="text-gray-300">${app.summary}</p>
+                </div>
+                <div>
+                  <h3 class="font-semibold mb-2 text-purple-400">Long Description</h3>
+                  <p class="text-gray-400 text-sm line-clamp-6">${app.description}</p>
+                </div>
+              </div>
+
+              <!-- Creatives Section -->
+              <div class="p-6 bg-gray-950 border-t border-gray-800">
+                <h3 class="font-semibold mb-4 text-lg flex items-center gap-2">
+                  <i class="fas fa-images"></i> Creatives
+                </h3>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <!-- Feature Graphic -->
+                  ${app.headerImage ? `
+                  <div>
+                    <p class="text-xs text-gray-500 mb-2">FEATURE GRAPHIC</p>
+                    <img src="${app.headerImage}" class="rounded-xl w-full" alt="Feature Graphic">
+                  </div>` : ''}
+
+                  <!-- Screenshots -->
+                  ${app.screenshots.slice(0, 8).map((shot, i) => `
+                    <div>
+                      <p class="text-xs text-gray-500 mb-2">SCREEN ${i+1}</p>
+                      <img src="${shot}" class="screenshot rounded-xl w-full border border-gray-700 cursor-pointer" 
+                           onclick="window.open('${shot}', '_blank')">
+                    </div>
+                  `).join('')}
+                </div>
+
+                ${app.video ? `
+                <div class="mt-6">
+                  <p class="text-xs text-gray-500 mb-2">PROMO VIDEO</p>
+                  <iframe width="100%" height="380" src="${app.video.replace('watch?v=', 'embed/')}" 
+                          frameborder="0" allowfullscreen class="rounded-2xl"></iframe>
+                </div>` : ''}
+              </div>
+            </div>`;
+        });
+
+        html += `</div>`;
+        resultsDiv.innerHTML = html;
+
+      } catch (err) {
+        resultsDiv.innerHTML = `<p class="text-red-500 text-center">Error connecting to backend. Check API URL.</p>`;
+      }
+    }
+
+    // Allow Enter key
+    document.getElementById('searchInput').addEventListener('keypress', e => {
+      if (e.key === 'Enter') searchApps();
+    });
+  </script>
+</body>
+</html>
