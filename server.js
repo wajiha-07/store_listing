@@ -7,38 +7,28 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/search', async (req, res) => {
-  let { q, num = 5, country = 'pk', lang = 'en' } = req.query;
+  const { q, num = 5, country = 'pk', lang = 'en' } = req.query;
 
-  if (!q) return res.status(400).json({ error: "Query is required" });
+  if (!q) {
+    return res.status(400).json({ error: "Query parameter 'q' is required" });
+  }
+
+  console.log(`🔍 Search request: "${q}" | Country: ${country}`);
 
   try {
-    console.log(`Searching: ${q} | Country: ${country}`);
-
     const results = await gplay.search({
       term: q,
-      num: Math.min(parseInt(num), 10),   // Max 10 for stability
+      num: Math.min(parseInt(num), 10),
       country: country,
       lang: lang,
       fullDetail: true,
-      throttle: 100,                      // Small delay to avoid blocks
+      throttle: 150,           // Helps avoid quick blocks
     });
 
-    console.log(`Found ${results.length} results for "${q}"`);
-
-    if (results.length === 0) {
-      // Try again with simpler settings as fallback
-      const fallback = await gplay.search({
-        term: q,
-        num: 5,
-        country: country,
-        lang: lang,
-        fullDetail: false
-      });
-      console.log(`Fallback returned ${fallback.length} results`);
-    }
+    console.log(`✅ Found ${results.length} apps for "${q}"`);
 
     const cleaned = results.map(app => ({
-      title: app.title || "Unknown",
+      title: app.title || "Unknown App",
       developer: app.developer || "Unknown",
       icon: app.icon,
       rating: app.score || 0,
@@ -50,19 +40,23 @@ app.get('/search', async (req, res) => {
       headerImage: app.headerImage,
       screenshots: app.screenshots || [],
       video: app.video || null,
-      videoImage: app.videoImage || null
     }));
 
     res.json(cleaned);
 
   } catch (error) {
-    console.error("Scraper Error:", error.message);
+    console.error("❌ Scraper Error:", error.message);
+    console.error("Full Error:", error);
+
+    // Send helpful error to frontend
     res.status(500).json({ 
       error: "Scraper failed",
-      message: "Try a different keyword or try again later"
+      message: error.message.includes("429") ? "Too many requests. Try again later." : "Failed to fetch data from Google Play. Try a different keyword."
     });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
