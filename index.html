@@ -7,10 +7,25 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
-    .app-card { transition: all 0.3s; }
-    .app-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.2); }
-    .screenshot { transition: transform 0.3s; }
-    .screenshot:hover { transform: scale(1.08); }
+    .app-card { 
+      transition: all 0.3s; 
+    }
+    .app-card:hover { 
+      transform: translateY(-8px); 
+      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.2); 
+    }
+    .screenshot { 
+      transition: transform 0.3s; 
+    }
+    .screenshot:hover { 
+      transform: scale(1.08); 
+    }
+    .line-clamp-6 {
+      display: -webkit-box;
+      -webkit-line-clamp: 6;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
@@ -23,10 +38,10 @@
     </header>
 
     <div class="flex gap-4 mb-8 max-w-2xl mx-auto">
-      <input id="searchInput" type="text" 
+      <input id="searchInput" type="text"
              class="flex-1 bg-gray-900 border border-gray-700 rounded-2xl px-6 py-4 focus:outline-none focus:border-blue-500 text-lg"
              placeholder="Search keywords... e.g. fitness tracker, photo editor">
-      <button onclick="searchApps()" 
+      <button onclick="searchApps()"
               class="bg-blue-600 hover:bg-blue-700 px-10 rounded-2xl font-semibold flex items-center gap-2">
         <i class="fas fa-search"></i> Search
       </button>
@@ -36,29 +51,47 @@
   </div>
 
   <script>
-    const API_BASE = "https://store-listing.onrender.com"; // ← Change this!
+    const API_BASE = "https://store-listing.onrender.com";   // ← Your Render URL
 
     async function searchApps() {
       const query = document.getElementById('searchInput').value.trim();
-      if (!query) return alert("Enter a keyword");
+      if (!query) return alert("Please enter a keyword");
 
       const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = `<p class="text-center text-gray-400">Searching Play Store...</p>`;
+      resultsDiv.innerHTML = `<p class="text-center text-gray-400 py-12">Searching Play Store for "${query}"...</p>`;
 
       try {
         const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}&num=5&country=pk`);
+        
+        if (!res.ok) {
+          throw new Error(`Server responded with ${res.status}`);
+        }
+
         const apps = await res.json();
 
-        if (!apps.length) {
-          resultsDiv.innerHTML = `<p class="text-center text-red-400">No results found.</p>`;
+        console.log("API Response:", apps);   // For debugging
+
+        // Improved No Results Message
+        if (!apps || apps.length === 0) {
+          resultsDiv.innerHTML = `
+            <div class="text-center py-12 bg-gray-900 rounded-3xl p-8 border border-gray-700 max-w-2xl mx-auto">
+              <p class="text-yellow-400 text-xl mb-3">No results found for "${query}"</p>
+              <p class="text-gray-400 mb-4">The scraper sometimes fails on specific keywords.</p>
+              <p class="text-sm text-gray-500">Try more general keywords like:</p>
+              <p class="text-blue-400 text-sm mt-2">
+                fitness, photo editor, calculator, whatsapp, tiktok, cricket, game
+              </p>
+            </div>`;
           return;
         }
 
+        // Results Found - Display Apps
         let html = `<div class="space-y-10">`;
         
-        apps.forEach((app, index) => {
+        apps.forEach((app) => {
           html += `
             <div class="app-card bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden">
+              <!-- Header -->
               <div class="p-6 border-b border-gray-800 flex items-center gap-6">
                 <img src="${app.icon}" class="w-20 h-20 rounded-2xl object-cover" alt="${app.title}">
                 <div class="flex-1">
@@ -80,11 +113,11 @@
               <div class="p-6 grid md:grid-cols-2 gap-6">
                 <div>
                   <h3 class="font-semibold mb-2 text-blue-400">Short Description</h3>
-                  <p class="text-gray-300">${app.summary}</p>
+                  <p class="text-gray-300">${app.summary || "No summary available"}</p>
                 </div>
                 <div>
                   <h3 class="font-semibold mb-2 text-purple-400">Long Description</h3>
-                  <p class="text-gray-400 text-sm line-clamp-6">${app.description}</p>
+                  <p class="text-gray-400 text-sm line-clamp-6">${app.description || "No description available"}</p>
                 </div>
               </div>
 
@@ -103,15 +136,18 @@
                   </div>` : ''}
 
                   <!-- Screenshots -->
-                  ${app.screenshots.slice(0, 8).map((shot, i) => `
-                    <div>
-                      <p class="text-xs text-gray-500 mb-2">SCREEN ${i+1}</p>
-                      <img src="${shot}" class="screenshot rounded-xl w-full border border-gray-700 cursor-pointer" 
-                           onclick="window.open('${shot}', '_blank')">
-                    </div>
-                  `).join('')}
+                  ${app.screenshots && app.screenshots.length > 0 ? 
+                    app.screenshots.slice(0, 8).map((shot, i) => `
+                      <div>
+                        <p class="text-xs text-gray-500 mb-2">SCREEN ${i+1}</p>
+                        <img src="${shot}" class="screenshot rounded-xl w-full border border-gray-700 cursor-pointer"
+                             onclick="window.open('${shot}', '_blank')">
+                      </div>
+                    `).join('') : 
+                    '<p class="text-gray-500 col-span-4">No screenshots available</p>'}
                 </div>
 
+                <!-- Video -->
                 ${app.video ? `
                 <div class="mt-6">
                   <p class="text-xs text-gray-500 mb-2">PROMO VIDEO</p>
@@ -126,11 +162,17 @@
         resultsDiv.innerHTML = html;
 
       } catch (err) {
-        resultsDiv.innerHTML = `<p class="text-red-500 text-center">Error connecting to backend. Check API URL.</p>`;
+        console.error("Error:", err);
+        resultsDiv.innerHTML = `
+          <div class="text-center py-12 text-red-500">
+            <p class="text-xl mb-2">❌ Failed to load results</p>
+            <p class="text-sm">${err.message}</p>
+            <p class="text-xs text-gray-500 mt-4">Make sure your Render backend is running</p>
+          </div>`;
       }
     }
 
-    // Allow Enter key
+    // Allow Enter key to search
     document.getElementById('searchInput').addEventListener('keypress', e => {
       if (e.key === 'Enter') searchApps();
     });
